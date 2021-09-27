@@ -1,3 +1,7 @@
+use vec3::*;
+
+mod vec3;
+
 fn main() {
     const WIDTH: u32 = 256;
     const HEIGHT: u32 = 256;
@@ -8,15 +12,12 @@ fn main() {
         eprintln!("Scanlines remaining: {}", j);
 
         for i in 0..WIDTH {
-            let r = i as f64 / (WIDTH as f64 - 1f64);
-            let g = j as f64 / (HEIGHT as f64 - 1f64);
-            let b = 0.25;
-
-            let r = (255.999f64 * r) as u32;
-            let g = (255.999f64 * g) as u32;
-            let b = (255.999f64 * b) as u32;
-
-            println!("{} {} {}", r, g, b);
+            let col = Color::new(
+                i as f64 / (WIDTH as f64 - 1f64),
+                j as f64 / (HEIGHT as f64 - 1f64),
+                0.25,
+            );
+            col.print();
         }
     }
 

@@ -38,7 +38,21 @@ fn main() {
 }
 
 fn ray_color(ray: &Ray) -> Color {
+    if hits_sphere(-1.0*Vec3::z(), 0.5, ray) {
+        return Color::new(1.0, 0.0, 0.0);
+    }
+
     let dir = ray.dir.normalize();
     let t = (dir.y + 1.0) * 0.5;
     (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
+}
+
+fn hits_sphere(center: Vec3, radius: f64, ray: &Ray) -> bool {
+    let oc = ray.orig - center;
+
+    let a = Vec3::dot(&ray.dir, &ray.dir);
+    let b = 2.0 * Vec3::dot(&ray.dir, &oc);
+    let c = Vec3::dot(&oc, &oc) - radius.powi(2);
+
+    b.powi(2) - 4.0 * a * c >= 0.0
 }

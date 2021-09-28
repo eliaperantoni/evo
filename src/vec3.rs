@@ -18,6 +18,18 @@ impl Vec3 {
         Self { x, y, z }
     }
 
+    pub fn x() -> Self {
+        Self::new(1.0, 0.0, 0.0)
+    }
+
+    pub fn y() -> Self {
+        Self::new(0.0, 1.0, 0.0)
+    }
+
+    pub fn z() -> Self {
+        Self::new(0.0, 0.0, 1.0)
+    }
+
     pub fn len_squared(&self) -> f64 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }

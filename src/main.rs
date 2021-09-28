@@ -1,45 +1,49 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use hittable::*;
-use ray::*;
 use vec3::*;
+use ray::*;
+use hittable::*;
+use camera::*;
+use rand::Rng;
 
 mod vec3;
 mod ray;
 mod hittable;
+mod camera;
+
+const ASPECT_RATIO: f64 = 16.0 / 9.0;
+const IMG_WIDTH: u32 = 400;
+const IMG_HEIGHT: u32 = ((IMG_WIDTH as f64) / ASPECT_RATIO) as u32;
+
+const SAMPLES_PER_PIXEL: u32 = 100;
 
 fn main() {
-    const ASPECT_RATIO: f64 = 16.0 / 9.0;
-    const IMG_WIDTH: u32 = 400;
-    const IMG_HEIGHT: u32 = ((IMG_WIDTH as f64) / ASPECT_RATIO) as u32;
-
-    const VIEWPORT_HEIGHT: f64 = 2.0;
-    const VIEWPORT_WIDTH: f64 = VIEWPORT_HEIGHT * ASPECT_RATIO;
-    const FOCAL_LENGTH: f64 = 1.0;
-
-    let origin = Vec3::default();
-    let horizontal = Vec3::x() * VIEWPORT_WIDTH;
-    let vertical = Vec3::y() * VIEWPORT_HEIGHT;
-    let lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - Vec3::z() * FOCAL_LENGTH;
-
     println!("P3\n{} {}\n255", IMG_WIDTH, IMG_HEIGHT);
+
+    let camera = Camera::default();
 
     let mut world = HittableVec::default();
     world.push(Rc::new(Sphere::new(-1.0 * Vec3::z(), 0.5)));
     world.push(Rc::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
 
+    let mut rng = rand::thread_rng();
+
     for j in (0..IMG_HEIGHT).rev() {
         eprintln!("Scanlines remaining: {}", j);
 
         for i in 0..IMG_WIDTH {
-            let u = i as f64 / (IMG_WIDTH - 1) as f64;
-            let v = j as f64 / (IMG_HEIGHT - 1) as f64;
+            let mut pixel_color = Color::default();
 
-            let ray = Ray::new(origin, lower_left_corner + u * horizontal + v * vertical - origin);
+            for _ in 0..SAMPLES_PER_PIXEL {
+                let u = (i as f64 + rng.gen::<f64>()) / (IMG_WIDTH - 1) as f64;
+                let v = (j as f64 + rng.gen::<f64>()) / (IMG_HEIGHT - 1) as f64;
+                let ray = camera.make_ray(u, v);
+                pixel_color += ray_color(&ray, &world);
+            }
 
-            let col = ray_color(&ray, &world);
-            col.print();
+            pixel_color /= SAMPLES_PER_PIXEL as f64;
+            pixel_color.print();
         }
     }
 

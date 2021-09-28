@@ -43,9 +43,9 @@ impl Vec3 {
     }
 
     pub fn print(&self) {
-        let x = (255.999f64 * self.x) as u32;
-        let y = (255.999f64 * self.y) as u32;
-        let z = (255.999f64 * self.z) as u32;
+        let x = ((256.0 * self.x) as u32).clamp(0, 255);
+        let y = ((256.0 * self.y) as u32).clamp(0, 255);
+        let z = ((256.0 * self.z) as u32).clamp(0, 255);
 
         println!("{} {} {}", x, y, z);
     }

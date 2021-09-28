@@ -18,6 +18,10 @@ impl Vec3 {
         Self { x, y, z }
     }
 
+    pub fn ones() -> Self {
+        Self { x: 1.0, y: 1.0, z: 1.0 }
+    }
+
     pub fn x() -> Self {
         Self::new(1.0, 0.0, 0.0)
     }

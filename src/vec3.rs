@@ -45,6 +45,11 @@ impl Vec3 {
         self.len_squared().sqrt()
     }
 
+    pub fn is_near_zero(&self) -> bool {
+        const THRESHOLD: f64 = 1e-8;
+        self.x.abs() < THRESHOLD && self.y.abs() < THRESHOLD && self.z.abs() < THRESHOLD
+    }
+
     pub fn print(&self) {
         // Gamma correct
         let x = self.x.sqrt();
@@ -102,6 +107,11 @@ impl Vec3 {
 
     pub fn rand_on_unit_sphere() -> Self {
         Self::rand_in_unit_sphere().normalize()
+    }
+
+    pub fn reflect(&self, normal: &Vec3) -> Vec3 {
+        let scaled_normal = *normal * -Vec3::dot(self, normal);
+        *normal + 2.0 * scaled_normal
     }
 }
 

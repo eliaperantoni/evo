@@ -1,16 +1,18 @@
 use std::ops::Range;
-use std::rc::Rc;
 
-use vec3::*;
-use ray::*;
-use hittable::*;
-use camera::*;
 use rand::Rng;
+
+use camera::*;
+use hittable::*;
+use mat::*;
+use ray::*;
+use vec3::*;
 
 mod vec3;
 mod ray;
 mod hittable;
 mod camera;
+mod mat;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
 const IMG_WIDTH: u32 = 400;
@@ -25,9 +27,22 @@ fn main() {
 
     let camera = Camera::default();
 
+    let mat_ground = Lambertian::new(Color::new(0.8, 0.8, 0.0));
+    let mat_center = Lambertian::new(Color::new(0.7, 0.3, 0.3));
+    let mat_left = Metal::new(Color::new(0.8, 0.8, 0.8), 0.1);
+    let mat_right = Metal::new(Color::new(0.8, 0.6, 0.2), 0.7);
+
     let mut world = HittableVec::default();
-    world.push(Rc::new(Sphere::new(-1.0 * Vec3::z(), 0.5)));
-    world.push(Rc::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
+
+    let sphere0 = Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, &mat_ground);
+    let sphere1 = Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5, &mat_center);
+    let sphere2 = Sphere::new(Vec3::new(-1.0, 0.0, -1.0), 0.5, &mat_left);
+    let sphere3 = Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5, &mat_right);
+
+    world.push(&sphere0);
+    world.push(&sphere1);
+    world.push(&sphere2);
+    world.push(&sphere3);
 
     let mut rng = rand::thread_rng();
 
@@ -58,8 +73,11 @@ fn ray_color(ray: &Ray, world: &HittableVec, depth: u32) -> Color {
     }
 
     if let Some(hit) = world.hit(&(0.001..f64::INFINITY), ray) {
-        let bounce_dir = hit.normal + Vec3::rand_on_unit_sphere();
-        return 0.5 * ray_color(&Ray::new(hit.point, bounce_dir), world, depth - 1);
+        return if let Some((color, scattered)) = hit.mat.scatter(ray, &hit) {
+            color * ray_color(&scattered, world, depth - 1)
+        } else {
+            Color::default()
+        };
     }
 
     let dir = ray.dir.normalize();
@@ -67,18 +85,19 @@ fn ray_color(ray: &Ray, world: &HittableVec, depth: u32) -> Color {
     (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
 }
 
-struct Sphere {
+struct Sphere<'sphere> {
     center: Pos3,
     radius: f64,
+    mat: &'sphere dyn Mat,
 }
 
-impl Sphere {
-    fn new(center: Pos3, radius: f64) -> Sphere {
-        Sphere { center, radius }
+impl<'sphere> Sphere<'sphere> {
+    fn new(center: Pos3, radius: f64, mat: &'sphere dyn Mat) -> Self {
+        Sphere { center, radius, mat }
     }
 }
 
-impl Hittable for Sphere {
+impl<'sphere> Hittable for Sphere<'sphere> {
     fn hit(&self, t_range: &Range<f64>, ray: &Ray) -> Option<Hit> {
         let oc = ray.orig - self.center;
 
@@ -106,6 +125,6 @@ impl Hittable for Sphere {
         let hit_point = ray.at(t);
         let outward_normal = (hit_point - self.center).normalize();
 
-        Some(Hit::new(hit_point, ray, outward_normal, t))
+        Some(Hit::new(hit_point, ray, outward_normal, t, self.mat))
     }
 }

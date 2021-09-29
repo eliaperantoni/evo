@@ -1,24 +1,25 @@
 use std::borrow::Borrow;
 use std::ops::{Deref, DerefMut, Range};
-use std::rc::Rc;
 
+use crate::mat::Mat;
 use crate::ray::Ray;
 use crate::vec3::{Pos3, Vec3};
 
-pub struct Hit {
+pub struct Hit<'hit> {
     pub point: Pos3,
     // Normal always points towards the camera
     pub normal: Vec3,
     pub t: f64,
     pub is_front_face: bool,
+    pub mat: &'hit dyn Mat,
 }
 
-impl Hit {
-    pub fn new(point: Pos3, ray: &Ray, outward_normal: Vec3, t: f64) -> Self {
+impl<'hit> Hit<'hit> {
+    pub fn new(point: Pos3, ray: &Ray, outward_normal: Vec3, t: f64, mat: &'hit dyn Mat) -> Self {
         let is_front_face = Vec3::dot(&ray.dir, &outward_normal) < 0.0;
         let normal = if is_front_face { outward_normal } else { -outward_normal };
 
-        Self { point, normal, t, is_front_face }
+        Self { point, normal, t, is_front_face, mat }
     }
 }
 
@@ -27,23 +28,23 @@ pub trait Hittable {
 }
 
 #[derive(Default)]
-pub struct HittableVec(Vec<Rc<dyn Hittable>>);
+pub struct HittableVec<'hv>(Vec<&'hv dyn Hittable>);
 
-impl Deref for HittableVec {
-    type Target = Vec<Rc<dyn Hittable>>;
+impl<'hv> Deref for HittableVec<'hv> {
+    type Target = Vec<&'hv dyn Hittable>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for HittableVec {
+impl<'hv> DerefMut for HittableVec<'hv> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl Hittable for HittableVec {
+impl<'hv> Hittable for HittableVec<'hv> {
     fn hit(&self, t_range: &Range<f64>, ray: &Ray) -> Option<Hit> {
         let mut t_range = t_range.clone();
         let mut best_hit = None;

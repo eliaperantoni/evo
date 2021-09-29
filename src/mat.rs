@@ -35,7 +35,7 @@ pub struct Metal {
 
 impl Metal {
     pub fn new(albedo: Color, fuzz: f64) -> Self {
-        Metal { albedo, fuzz: fuzz.max(1.0) }
+        Metal { albedo, fuzz: fuzz.min(1.0) }
     }
 }
 
@@ -44,7 +44,7 @@ impl Mat for Metal {
         let reflected = ray.dir.normalize().reflect(&hit.normal) + self.fuzz * Vec3::rand_in_unit_sphere();
 
         if Vec3::dot(&reflected, &hit.normal) > 0.0 {
-            Some((self.albedo, Ray::new(reflected, hit.point)))
+            Some((self.albedo, Ray::new(hit.point, reflected)))
         } else {
             None
         }

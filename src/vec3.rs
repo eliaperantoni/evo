@@ -111,7 +111,7 @@ impl Vec3 {
 
     pub fn reflect(&self, normal: &Vec3) -> Vec3 {
         let scaled_normal = *normal * -Vec3::dot(self, normal);
-        *normal + 2.0 * scaled_normal
+        *self + 2.0 * scaled_normal
     }
 }
 
@@ -240,6 +240,8 @@ mod test {
         assert_eq!(Vec3::new(5.0, 0.0, 0.0).normalize(), Vec3::new(1.0, 0.0, 0.0));
 
         assert!(Vec3::rand_in_unit_sphere().len() < 1.0);
+
+        assert_eq!(Vec3::new(0.5, -0.5, 0.0).reflect(&Vec3::new(0.0, 1.0, 0.0)), Vec3::new(0.5, 0.5, 0.0));
     }
 }
 

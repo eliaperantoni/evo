@@ -18,6 +18,8 @@ const IMG_HEIGHT: u32 = ((IMG_WIDTH as f64) / ASPECT_RATIO) as u32;
 
 const SAMPLES_PER_PIXEL: u32 = 100;
 
+const MAX_DEPTH: u32 = 50;
+
 fn main() {
     println!("P3\n{} {}\n255", IMG_WIDTH, IMG_HEIGHT);
 
@@ -39,7 +41,7 @@ fn main() {
                 let u = (i as f64 + rng.gen::<f64>()) / (IMG_WIDTH - 1) as f64;
                 let v = (j as f64 + rng.gen::<f64>()) / (IMG_HEIGHT - 1) as f64;
                 let ray = camera.make_ray(u, v);
-                pixel_color += ray_color(&ray, &world);
+                pixel_color += ray_color(&ray, &world, MAX_DEPTH);
             }
 
             pixel_color /= SAMPLES_PER_PIXEL as f64;
@@ -50,9 +52,14 @@ fn main() {
     eprintln!("Done!");
 }
 
-fn ray_color(ray: &Ray, world: &HittableVec) -> Color {
-    if let Some(hit) = world.hit(&(0.0..f64::INFINITY), ray) {
-        return 0.5 * (hit.normal + Vec3::ones());
+fn ray_color(ray: &Ray, world: &HittableVec, depth: u32) -> Color {
+    if depth == 0 {
+        return Color::default();
+    }
+
+    if let Some(hit) = world.hit(&(0.001..f64::INFINITY), ray) {
+        let bounce_dir = hit.normal + Vec3::rand_on_unit_sphere();
+        return 0.5 * ray_color(&Ray::new(hit.point, bounce_dir), world, depth - 1);
     }
 
     let dir = ray.dir.normalize();

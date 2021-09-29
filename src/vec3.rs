@@ -1,5 +1,8 @@
 use std::ops;
 
+use rand::distributions::uniform::SampleRange;
+use rand::Rng;
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Vec3 {
     pub x: f64,
@@ -43,9 +46,15 @@ impl Vec3 {
     }
 
     pub fn print(&self) {
-        let x = ((256.0 * self.x) as u32).clamp(0, 255);
-        let y = ((256.0 * self.y) as u32).clamp(0, 255);
-        let z = ((256.0 * self.z) as u32).clamp(0, 255);
+        // Gamma correct
+        let x = self.x.sqrt();
+        let y = self.y.sqrt();
+        let z = self.z.sqrt();
+
+        // Map [0,1] => [0,255]
+        let x = ((256.0 * x) as u32).clamp(0, 255);
+        let y = ((256.0 * y) as u32).clamp(0, 255);
+        let z = ((256.0 * z) as u32).clamp(0, 255);
 
         println!("{} {} {}", x, y, z);
     }
@@ -62,8 +71,37 @@ impl Vec3 {
         }
     }
 
-    pub fn normalize(&self) -> Vec3 {
+    pub fn normalize(&self) -> Self {
         *self / self.len()
+    }
+
+    pub fn rand() -> Self {
+        Self {
+            x: rand::thread_rng().gen(),
+            y: rand::thread_rng().gen(),
+            z: rand::thread_rng().gen(),
+        }
+    }
+
+    pub fn rand_range<R: SampleRange<f64> + Clone>(range: R) -> Self {
+        Self {
+            x: rand::thread_rng().gen_range(range.clone()),
+            y: rand::thread_rng().gen_range(range.clone()),
+            z: rand::thread_rng().gen_range(range.clone()),
+        }
+    }
+
+    pub fn rand_in_unit_sphere() -> Self {
+        loop {
+            let vec = Self::rand_range(-1.0..=1.0);
+            if vec.len_squared() < 1.0 {
+                break vec;
+            }
+        }
+    }
+
+    pub fn rand_on_unit_sphere() -> Self {
+        Self::rand_in_unit_sphere().normalize()
     }
 }
 
@@ -190,6 +228,8 @@ mod test {
         ), Vec3::new(0.0, 0.0, 1.0));
 
         assert_eq!(Vec3::new(5.0, 0.0, 0.0).normalize(), Vec3::new(1.0, 0.0, 0.0));
+
+        assert!(Vec3::rand_in_unit_sphere().len() < 1.0);
     }
 }
 

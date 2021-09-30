@@ -1,4 +1,8 @@
-use std::ops::Range;
+#![feature(box_syntax)]
+
+use std::borrow::Borrow;
+use std::ops::{Deref, Range};
+use std::rc::Rc;
 
 use rand::Rng;
 
@@ -16,47 +20,82 @@ mod mat;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
 
-const IMG_WIDTH: u32 = 400;
+const IMG_WIDTH: u32 = 1920;
 const IMG_HEIGHT: u32 = ((IMG_WIDTH as f64) / ASPECT_RATIO) as u32;
 
-const SAMPLES_PER_PIXEL: u32 = 100;
+const SAMPLES_PER_PIXEL: u32 = 1000;
 
 const MAX_DEPTH: u32 = 50;
 
 fn main() {
     println!("P3\n{} {}\n255", IMG_WIDTH, IMG_HEIGHT);
 
-    let eye = Pos3::new(3.0, 3.0, 2.0);
-    let target = Pos3::new(0.0, 0.0, -1.0);
+    let eye = Pos3::new(13.0, 2.0, 3.0);
+    let target = Pos3::new(0.0, 0.0, 0.0);
 
     let camera = Camera::new(CameraOpts {
         vfov: 20.0,
         aspect_ratio: ASPECT_RATIO,
-        aperture: 2.0,
-        focus_dist: (target - eye).len(),
+        aperture: 0.1,
+        focus_dist: 10.0,
         eye,
         target,
         global_up: Pos3::y(),
     });
 
-    let mat_ground = Lambertian::new(Color::new(0.8, 0.8, 0.0));
-    let mat_center = Lambertian::new(Color::new(0.1, 0.2, 0.5));
-    let mat_left = Dielectric::new(1.5);
-    let mat_right = Metal::new(Color::new(0.8, 0.6, 0.2), 0.0);
-
     let mut world = HittableVec::default();
 
-    let objects = vec![
-        Sphere::new(Vec3::new( 0.0, -100.5, -1.0), 100.0, &mat_ground),
-        Sphere::new(Vec3::new( 0.0,    0.0, -1.0),   0.5, &mat_center),
-        Sphere::new(Vec3::new(-1.0,    0.0, -1.0),   0.5, &mat_left),
-        Sphere::new(Vec3::new(-1.0,    0.0, -1.0), -0.45, &mat_left),
-        Sphere::new(Vec3::new( 1.0,    0.0, -1.0),   0.5, &mat_right),
-    ];
+    let mat_ground = Lambertian::new(Color::new(0.5, 0.5, 0.5));
+    let obj_ground = Sphere::new(Pos3::new(0.0, -1000.0, 0.0), 1000.0, box mat_ground);
+    world.push(&obj_ground);
 
-    for object in &objects {
-        world.push(object);
+    let mut objs: Vec<Sphere> = Vec::new();
+
+    for a in -11..11 {
+        for b in -11..11 {
+            let choose_mat: f64 = rand::thread_rng().gen::<f64>();
+            let center = Pos3::new(
+                a as f64 + 0.9 * rand::thread_rng().gen::<f64>(),
+                0.2,
+                b as f64 + 0.9 * rand::thread_rng().gen::<f64>(),
+            );
+
+            if (center - Pos3::new(4.0, 0.2, 0.0)).len() > 0.9 {
+                if choose_mat < 0.8 {
+                    // Diffuse
+                    let albedo = Color::rand() * Color::rand();
+                    let mat = box Lambertian::new(albedo);
+                    objs.push(Sphere::new(center, 0.2, mat));
+                } else if choose_mat < 0.95 {
+                    // Metal
+                    let albedo = Color::rand_range(0.5..=1.0);
+                    let fuzz = rand::thread_rng().gen_range(0.0..=0.5);
+                    let mat = box Metal::new(albedo, fuzz);
+                    objs.push(Sphere::new(center, 0.2, mat));
+                } else {
+                    // Glass
+                    let mat = box Dielectric::new(1.5);
+                    objs.push(Sphere::new(center, 0.2, mat));
+                }
+            }
+        }
     }
+
+    for obj in &objs {
+        world.push(obj);
+    }
+
+    let mat_1 = Dielectric::new(1.5);
+    let obj_1 = Sphere::new(Pos3::new(0.0, 1.0, 0.0), 1.0, box mat_1);
+    world.push(&obj_1);
+
+    let mat_2 = Lambertian::new(Color::new(0.4, 0.2, 0.1));
+    let obj_2 = Sphere::new(Pos3::new(-4.0, 1.0, 0.0), 1.0, box mat_2);
+    world.push(&obj_2);
+
+    let mat_3 = Metal::new(Color::new(0.7, 0.6, 0.5), 0.0);
+    let obj_3 = Sphere::new(Pos3::new(4.0, 1.0, 0.0), 1.0, box mat_3);
+    world.push(&obj_3);
 
     let mut rng = rand::thread_rng();
 
@@ -99,19 +138,19 @@ fn ray_color(ray: &Ray, world: &HittableVec, depth: u32) -> Color {
     (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
 }
 
-struct Sphere<'sphere> {
+struct Sphere {
     center: Pos3,
     radius: f64,
-    mat: &'sphere dyn Mat,
+    mat: Box<dyn Mat>,
 }
 
-impl<'sphere> Sphere<'sphere> {
-    fn new(center: Pos3, radius: f64, mat: &'sphere dyn Mat) -> Self {
+impl Sphere {
+    fn new(center: Pos3, radius: f64, mat: Box<dyn Mat>) -> Self {
         Sphere { center, radius, mat }
     }
 }
 
-impl<'sphere> Hittable for Sphere<'sphere> {
+impl Hittable for Sphere {
     fn hit(&self, t_range: &Range<f64>, ray: &Ray) -> Option<Hit> {
         let oc = ray.orig - self.center;
 
@@ -139,6 +178,6 @@ impl<'sphere> Hittable for Sphere<'sphere> {
         let hit_point = ray.at(t);
         let outward_normal = (hit_point - self.center) / self.radius;
 
-        Some(Hit::new(hit_point, ray, outward_normal, t, self.mat))
+        Some(Hit::new(hit_point, ray, outward_normal, t, self.mat.borrow()))
     }
 }

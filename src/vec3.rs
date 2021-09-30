@@ -109,6 +109,20 @@ impl Vec3 {
         Self::rand_in_unit_sphere().normalize()
     }
 
+    pub fn rand_in_unit_disk() -> Self {
+        loop {
+            let vec = Self {
+                x: rand::thread_rng().gen_range(-1.0..=1.0),
+                y: rand::thread_rng().gen_range(-1.0..=1.0),
+                z: 0.0,
+            };
+
+            if vec.len_squared() < 1.0 {
+                break vec;
+            }
+        }
+    }
+
     pub fn reflect(&self, normal: &Vec3) -> Vec3 {
         let scaled_normal = *normal * -Vec3::dot(self, normal);
         *self + 2.0 * scaled_normal

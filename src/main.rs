@@ -26,11 +26,16 @@ const MAX_DEPTH: u32 = 50;
 fn main() {
     println!("P3\n{} {}\n255", IMG_WIDTH, IMG_HEIGHT);
 
+    let eye = Pos3::new(3.0, 3.0, 2.0);
+    let target = Pos3::new(0.0, 0.0, -1.0);
+
     let camera = Camera::new(CameraOpts {
         vfov: 20.0,
         aspect_ratio: ASPECT_RATIO,
-        eye: Pos3::new(-2.0, 2.0, 1.0),
-        target: Pos3::new(0.0, 0.0, -1.0),
+        aperture: 2.0,
+        focus_dist: (target - eye).len(),
+        eye,
+        target,
         global_up: Pos3::y(),
     });
 

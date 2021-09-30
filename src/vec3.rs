@@ -113,6 +113,13 @@ impl Vec3 {
         let scaled_normal = *normal * -Vec3::dot(self, normal);
         *self + 2.0 * scaled_normal
     }
+
+    pub fn refract(&self, normal: &Vec3, ir_ratio: f64) -> Vec3 {
+        let cos_theta = Vec3::dot(&-*self, normal).min(1.0);
+        let r_perp = ir_ratio * (*self + cos_theta * *normal);
+        let r_para = -f64::sqrt(f64::abs(1.0 - r_perp.len_squared())) * *normal;
+        r_perp + r_para
+    }
 }
 
 impl ops::Neg for Vec3 {

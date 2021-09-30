@@ -28,20 +28,22 @@ fn main() {
     let camera = Camera::default();
 
     let mat_ground = Lambertian::new(Color::new(0.8, 0.8, 0.0));
-    let mat_center = Lambertian::new(Color::new(0.7, 0.3, 0.3));
-    let mat_left = Metal::new(Color::new(0.8, 0.8, 0.8), 0.8);
-    let mat_right = Metal::new(Color::new(0.8, 0.6, 0.2), 0.2);
+    let mat_center = Lambertian::new(Color::new(0.1, 0.2, 0.5));
+    let mat_left = Dielectric::new(1.5);
+    let mat_right = Metal::new(Color::new(0.8, 0.6, 0.2), 0.0);
 
     let mut world = HittableVec::default();
 
-    let sphere0 = Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, &mat_ground);
-    let sphere1 = Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5, &mat_center);
-    let sphere2 = Sphere::new(Vec3::new(-1.0, 0.0, -1.0), 0.5, &mat_left);
-    let sphere3 = Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5, &mat_right);
+    let sphere0 =        Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, &mat_ground);
+    let sphere1 =        Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5, &mat_center);
+    let sphere2 =        Sphere::new(Vec3::new(-1.0, 0.0, -1.0), 0.5, &mat_left);
+    let sphere2_bubble = Sphere::new(Vec3::new(-1.0, 0.0, -1.0), -0.4, &mat_left);
+    let sphere3 =        Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5, &mat_right);
 
     world.push(&sphere0);
     world.push(&sphere1);
     world.push(&sphere2);
+    world.push(&sphere2_bubble);
     world.push(&sphere3);
 
     let mut rng = rand::thread_rng();
@@ -123,7 +125,7 @@ impl<'sphere> Hittable for Sphere<'sphere> {
         };
 
         let hit_point = ray.at(t);
-        let outward_normal = (hit_point - self.center).normalize();
+        let outward_normal = (hit_point - self.center) / self.radius;
 
         Some(Hit::new(hit_point, ray, outward_normal, t, self.mat))
     }

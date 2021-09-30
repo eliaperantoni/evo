@@ -15,6 +15,7 @@ mod camera;
 mod mat;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
+
 const IMG_WIDTH: u32 = 400;
 const IMG_HEIGHT: u32 = ((IMG_WIDTH as f64) / ASPECT_RATIO) as u32;
 
@@ -25,7 +26,13 @@ const MAX_DEPTH: u32 = 50;
 fn main() {
     println!("P3\n{} {}\n255", IMG_WIDTH, IMG_HEIGHT);
 
-    let camera = Camera::default();
+    let camera = Camera::new(CameraOpts {
+        vfov: 20.0,
+        aspect_ratio: ASPECT_RATIO,
+        eye: Pos3::new(-2.0, 2.0, 1.0),
+        target: Pos3::new(0.0, 0.0, -1.0),
+        global_up: Pos3::y(),
+    });
 
     let mat_ground = Lambertian::new(Color::new(0.8, 0.8, 0.0));
     let mat_center = Lambertian::new(Color::new(0.1, 0.2, 0.5));
@@ -34,17 +41,17 @@ fn main() {
 
     let mut world = HittableVec::default();
 
-    let sphere0 =        Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, &mat_ground);
-    let sphere1 =        Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5, &mat_center);
-    let sphere2 =        Sphere::new(Vec3::new(-1.0, 0.0, -1.0), 0.5, &mat_left);
-    let sphere2_bubble = Sphere::new(Vec3::new(-1.0, 0.0, -1.0), -0.4, &mat_left);
-    let sphere3 =        Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5, &mat_right);
+    let objects = vec![
+        Sphere::new(Vec3::new( 0.0, -100.5, -1.0), 100.0, &mat_ground),
+        Sphere::new(Vec3::new( 0.0,    0.0, -1.0),   0.5, &mat_center),
+        Sphere::new(Vec3::new(-1.0,    0.0, -1.0),   0.5, &mat_left),
+        Sphere::new(Vec3::new(-1.0,    0.0, -1.0), -0.45, &mat_left),
+        Sphere::new(Vec3::new( 1.0,    0.0, -1.0),   0.5, &mat_right),
+    ];
 
-    world.push(&sphere0);
-    world.push(&sphere1);
-    world.push(&sphere2);
-    world.push(&sphere2_bubble);
-    world.push(&sphere3);
+    for object in &objects {
+        world.push(object);
+    }
 
     let mut rng = rand::thread_rng();
 

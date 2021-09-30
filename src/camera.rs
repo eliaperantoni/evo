@@ -1,6 +1,13 @@
-use crate::ASPECT_RATIO;
 use crate::ray::Ray;
 use crate::vec3::{Pos3, Vec3};
+
+pub struct CameraOpts {
+    pub vfov: f64,
+    pub aspect_ratio: f64,
+    pub eye: Pos3,
+    pub target: Pos3,
+    pub global_up: Vec3,
+}
 
 pub struct Camera {
     eye: Pos3,
@@ -9,19 +16,23 @@ pub struct Camera {
     vertical: Vec3,
 }
 
-const VIEWPORT_HEIGHT: f64 = 2.0;
-const VIEWPORT_WIDTH: f64 = VIEWPORT_HEIGHT * ASPECT_RATIO;
-const FOCAL_LENGTH: f64 = 1.0;
+impl Camera {
+    pub fn new(opts: CameraOpts) -> Self {
+        let h = f64::atan(opts.vfov.to_radians() / 2.0);
 
-impl Default for Camera {
-    fn default() -> Self {
-        let eye = Vec3::default();
-        let horizontal = VIEWPORT_WIDTH * Vec3::x();
-        let vertical = VIEWPORT_HEIGHT * Vec3::y();
+        let viewport_height = 2.0 * h;
+        let viewport_width = viewport_height * opts.aspect_ratio;
 
-        let lower_left_corner = eye - Vec3::z() * FOCAL_LENGTH - horizontal / 2.0 - vertical / 2.0;
+        let forward = (opts.target - opts.eye).normalize();
+        let right = Vec3::cross(&forward, &opts.global_up).normalize();
+        let up = Vec3::cross(&right, &forward).normalize();
 
-        Self { eye, horizontal, vertical, lower_left_corner }
+        let horizontal = viewport_width * right;
+        let vertical = viewport_height * up;
+
+        let lower_left_corner = opts.eye + forward - horizontal / 2.0 - vertical / 2.0;
+
+        Self { eye: opts.eye, horizontal, vertical, lower_left_corner }
     }
 }
 

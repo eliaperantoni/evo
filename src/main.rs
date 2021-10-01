@@ -4,6 +4,8 @@ use std::borrow::Borrow;
 use std::ops::{Deref, Range};
 use std::rc::Rc;
 
+use image::{Rgb, RgbImage};
+
 use rand::Rng;
 
 use camera::*;
@@ -20,15 +22,15 @@ mod mat;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
 
-const IMG_WIDTH: u32 = 1920;
+const IMG_WIDTH: u32 = 400;
 const IMG_HEIGHT: u32 = ((IMG_WIDTH as f64) / ASPECT_RATIO) as u32;
 
-const SAMPLES_PER_PIXEL: u32 = 1000;
+const SAMPLES_PER_PIXEL: u32 = 100;
 
 const MAX_DEPTH: u32 = 50;
 
 fn main() {
-    println!("P3\n{} {}\n255", IMG_WIDTH, IMG_HEIGHT);
+    let mut buf: RgbImage = RgbImage::new(IMG_WIDTH, IMG_HEIGHT);
 
     let eye = Pos3::new(13.0, 2.0, 3.0);
     let target = Pos3::new(0.0, 0.0, 0.0);
@@ -113,9 +115,11 @@ fn main() {
             }
 
             pixel_color /= SAMPLES_PER_PIXEL as f64;
-            pixel_color.print();
+            buf.put_pixel(i, IMG_HEIGHT-j-1, Rgb(pixel_color.as_rgb_vec()));
         }
     }
+
+    buf.save("out.png");
 
     eprintln!("Done!");
 }

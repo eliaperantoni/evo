@@ -50,18 +50,12 @@ impl Vec3 {
         self.x.abs() < THRESHOLD && self.y.abs() < THRESHOLD && self.z.abs() < THRESHOLD
     }
 
-    pub fn print(&self) {
-        // Gamma correct
-        let x = self.x.sqrt();
-        let y = self.y.sqrt();
-        let z = self.z.sqrt();
-
-        // Map [0,1] => [0,255]
-        let x = ((256.0 * x) as u32).clamp(0, 255);
-        let y = ((256.0 * y) as u32).clamp(0, 255);
-        let z = ((256.0 * z) as u32).clamp(0, 255);
-
-        println!("{} {} {}", x, y, z);
+    pub fn as_rgb_vec(&self) -> [u8; 3] {
+        [
+            (self.x.sqrt() * 256.0).clamp(0.0, 255.0) as u8,
+            (self.y.sqrt() * 256.0).clamp(0.0, 255.0) as u8,
+            (self.z.sqrt() * 256.0).clamp(0.0, 255.0) as u8,
+        ]
     }
 
     pub fn dot(lhs: &Self, rhs: &Self) -> f64 {

@@ -23,28 +23,28 @@ impl<'hit> Hit<'hit> {
     }
 }
 
-pub trait Hittable {
+pub trait Hittable: Sync {
     fn hit(&self, t_range: &Range<f64>, ray: &Ray) -> Option<Hit>;
 }
 
 #[derive(Default)]
-pub struct HittableVec<'hv>(Vec<&'hv dyn Hittable>);
+pub struct HittableVec(Vec<Box<dyn Hittable>>);
 
-impl<'hv> Deref for HittableVec<'hv> {
-    type Target = Vec<&'hv dyn Hittable>;
+impl Deref for HittableVec {
+    type Target<'hv> = Vec<&'hv dyn Hittable>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<'hv> DerefMut for HittableVec<'hv> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
+impl<'hv> DerefMut for HittableVec {
+    fn deref_mut(&'hv mut self) -> &'hv mut Self::Target {
         &mut self.0
     }
 }
 
-impl<'hv> Hittable for HittableVec<'hv> {
+impl Hittable for HittableVec {
     fn hit(&self, t_range: &Range<f64>, ray: &Ray) -> Option<Hit> {
         let mut t_range = t_range.clone();
         let mut best_hit = None;

@@ -3,7 +3,7 @@ use crate::ray::Ray;
 use crate::vec3::{Color, Vec3};
 use rand::Rng;
 
-pub trait Mat {
+pub trait Mat: Sync {
     fn scatter(&self, ray: &Ray, hit: &Hit) -> Option<(Color, Ray)>;
 }
 

@@ -1,10 +1,14 @@
 #![feature(box_syntax)]
+#![feature(type_ascription)]
+#![feature(generic_associated_types)]
 
 use std::borrow::Borrow;
-use std::ops::{Deref, Range};
-use std::rc::Rc;
+use std::ops::Range;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 use image::{Rgb, RgbImage};
+use itertools::{iproduct, Itertools};
 
 use rand::Rng;
 
@@ -29,9 +33,9 @@ const SAMPLES_PER_PIXEL: u32 = 100;
 
 const MAX_DEPTH: u32 = 50;
 
-fn main() {
-    let mut buf: RgbImage = RgbImage::new(IMG_WIDTH, IMG_HEIGHT);
+const CHUNK_SIZE: usize = 100;
 
+fn main() {
     let eye = Pos3::new(13.0, 2.0, 3.0);
     let target = Pos3::new(0.0, 0.0, 0.0);
 
@@ -99,26 +103,70 @@ fn main() {
     let obj_3 = Sphere::new(Pos3::new(4.0, 1.0, 0.0), 1.0, box mat_3);
     world.push(&obj_3);
 
-    let mut rng = rand::thread_rng();
-
-    for j in (0..IMG_HEIGHT).rev() {
-        eprintln!("Scanlines remaining: {}", j);
-
-        for i in 0..IMG_WIDTH {
-            let mut pixel_color = Color::default();
-
-            for _ in 0..SAMPLES_PER_PIXEL {
-                let u = (i as f64 + rng.gen::<f64>()) / (IMG_WIDTH - 1) as f64;
-                let v = (j as f64 + rng.gen::<f64>()) / (IMG_HEIGHT - 1) as f64;
-                let ray = camera.make_ray(u, v);
-                pixel_color += ray_color(&ray, &world, MAX_DEPTH);
-            }
-
-            pixel_color /= SAMPLES_PER_PIXEL as f64;
-            buf.put_pixel(i, IMG_HEIGHT-j-1, Rgb(pixel_color.as_rgb_vec()));
-        }
+    struct Ctx {
+        world: HittableVec,
+        camera: Camera,
     }
 
+    let ctx = Arc::new(Ctx {world, camera});
+
+    let heights = (0..IMG_HEIGHT).into_iter().collect_vec();
+    let widths = (0..IMG_WIDTH).into_iter().collect_vec();
+
+    let height_chunks = heights.chunks(CHUNK_SIZE);
+    let width_chunks = widths.chunks(CHUNK_SIZE);
+
+    let chunks = iproduct!(height_chunks, width_chunks);
+
+    let chunks = Arc::new(Mutex::new(chunks.into_iter()
+        .map(|(ys, xs)| (ys.to_vec(), xs.to_vec())).collect_vec()));
+
+    let buf = Arc::new(Mutex::new(RgbImage::new(IMG_WIDTH, IMG_HEIGHT)));
+
+    let mut threads = Vec::new();
+
+    for _ in 0..10 {
+        let chunks = Arc::clone(&chunks.clone());
+        let buf = Arc::clone(&buf);
+
+        let ctx = Arc::clone(&ctx);
+
+        threads.push(thread::spawn(move || {
+            let mut chunks = chunks.lock().unwrap();
+            if chunks.is_empty() {
+                return;
+            }
+
+            let chunk = chunks.pop();
+            drop(chunks);
+
+            let mut rng = rand::thread_rng();
+
+            for j in (0..IMG_HEIGHT).rev() {
+                for i in 0..IMG_WIDTH {
+                    let mut pixel_color = Color::default();
+
+                    for _ in 0..SAMPLES_PER_PIXEL {
+                        let u = (i as f64 + rng.gen::<f64>()) / (IMG_WIDTH - 1) as f64;
+                        let v = (j as f64 + rng.gen::<f64>()) / (IMG_HEIGHT - 1) as f64;
+                        let ray = ctx.camera.make_ray(u, v);
+                        pixel_color += ray_color(&ray, &ctx.world, MAX_DEPTH);
+                    }
+
+                    pixel_color /= SAMPLES_PER_PIXEL as f64;
+
+                    let mut buf = buf.lock().unwrap();
+                    buf.put_pixel(i, IMG_HEIGHT - j - 1, Rgb(pixel_color.as_rgb_vec()));
+                }
+            }
+        }));
+    }
+
+    for thread in threads {
+        thread.join();
+    }
+
+    let buf = buf.lock().unwrap();
     buf.save("out.png");
 
     eprintln!("Done!");

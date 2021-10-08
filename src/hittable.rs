@@ -23,7 +23,7 @@ impl<'hit> Hit<'hit> {
     }
 }
 
-pub trait Hittable: Sync {
+pub trait Hittable: Send + Sync {
     fn hit(&self, t_range: &Range<f64>, ray: &Ray) -> Option<Hit>;
 }
 
@@ -31,15 +31,15 @@ pub trait Hittable: Sync {
 pub struct HittableVec(Vec<Box<dyn Hittable>>);
 
 impl Deref for HittableVec {
-    type Target<'hv> = Vec<&'hv dyn Hittable>;
+    type Target = Vec<Box<dyn Hittable>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<'hv> DerefMut for HittableVec {
-    fn deref_mut(&'hv mut self) -> &'hv mut Self::Target {
+impl DerefMut for HittableVec {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }

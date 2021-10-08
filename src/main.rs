@@ -8,8 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use image::{Rgb, RgbImage};
-use itertools::{iproduct, Itertools};
-
+use num::Integer;
 use rand::Rng;
 
 use camera::*;
@@ -29,11 +28,11 @@ const ASPECT_RATIO: f64 = 16.0 / 9.0;
 const IMG_WIDTH: u32 = 400;
 const IMG_HEIGHT: u32 = ((IMG_WIDTH as f64) / ASPECT_RATIO) as u32;
 
-const SAMPLES_PER_PIXEL: u32 = 100;
+const SAMPLES_PER_PIXEL: u32 = 50;
 
 const MAX_DEPTH: u32 = 50;
 
-const CHUNK_SIZE: usize = 100;
+const CHUNK_SIZE: u32 = 10;
 
 fn main() {
     let eye = Pos3::new(13.0, 2.0, 3.0);
@@ -53,7 +52,7 @@ fn main() {
 
     let mat_ground = Lambertian::new(Color::new(0.5, 0.5, 0.5));
     let obj_ground = Sphere::new(Pos3::new(0.0, -1000.0, 0.0), 1000.0, box mat_ground);
-    world.push(&obj_ground);
+    world.push(box obj_ground);
 
     let mut objs: Vec<Sphere> = Vec::new();
 
@@ -87,87 +86,90 @@ fn main() {
         }
     }
 
-    for obj in &objs {
-        world.push(obj);
+    for obj in objs {
+        world.push(box obj);
     }
 
     let mat_1 = Dielectric::new(1.5);
     let obj_1 = Sphere::new(Pos3::new(0.0, 1.0, 0.0), 1.0, box mat_1);
-    world.push(&obj_1);
+    world.push(box obj_1);
 
     let mat_2 = Lambertian::new(Color::new(0.4, 0.2, 0.1));
     let obj_2 = Sphere::new(Pos3::new(-4.0, 1.0, 0.0), 1.0, box mat_2);
-    world.push(&obj_2);
+    world.push(box obj_2);
 
     let mat_3 = Metal::new(Color::new(0.7, 0.6, 0.5), 0.0);
     let obj_3 = Sphere::new(Pos3::new(4.0, 1.0, 0.0), 1.0, box mat_3);
-    world.push(&obj_3);
+    world.push(box obj_3);
 
     struct Ctx {
         world: HittableVec,
         camera: Camera,
     }
 
-    let ctx = Arc::new(Ctx {world, camera});
+    let ctx = Box::leak(box Ctx { world, camera });
 
-    let heights = (0..IMG_HEIGHT).into_iter().collect_vec();
-    let widths = (0..IMG_WIDTH).into_iter().collect_vec();
+    let n_chunks_y = IMG_HEIGHT.div_ceil(&CHUNK_SIZE);
+    let n_chunks_x = IMG_WIDTH.div_ceil(&CHUNK_SIZE);
 
-    let height_chunks = heights.chunks(CHUNK_SIZE);
-    let width_chunks = widths.chunks(CHUNK_SIZE);
+    let mut chunks: Vec<Vec<(u32, u32)>> = Vec::with_capacity((n_chunks_y * n_chunks_x) as usize);
 
-    let chunks = iproduct!(height_chunks, width_chunks);
+    for chunk_y in 0..n_chunks_y {
+        for chunk_x in 0..n_chunks_x {
+            let mut chunk = Vec::with_capacity((CHUNK_SIZE * CHUNK_SIZE) as usize);
 
-    let chunks = Arc::new(Mutex::new(chunks.into_iter()
-        .map(|(ys, xs)| (ys.to_vec(), xs.to_vec())).collect_vec()));
+            for y in chunk_y * CHUNK_SIZE..((chunk_y + 1) * CHUNK_SIZE).min(IMG_HEIGHT) {
+                for x in chunk_x * CHUNK_SIZE..((chunk_x + 1) * CHUNK_SIZE).min(IMG_WIDTH) {
+                    chunk.push((y, x));
+                }
+            }
+
+            chunks.push(chunk);
+        }
+    }
+
+    let chunks = Arc::new(Mutex::new(chunks));
 
     let buf = Arc::new(Mutex::new(RgbImage::new(IMG_WIDTH, IMG_HEIGHT)));
 
     let mut threads = Vec::new();
 
-    for _ in 0..10 {
-        let chunks = Arc::clone(&chunks.clone());
-        let buf = Arc::clone(&buf);
-
-        let ctx = Arc::clone(&ctx);
+    for _ in 0..num_cpus::get() {
+        let (chunks, buf) = (Arc::clone(&chunks.clone()), Arc::clone(&buf));
+        let ctx = &*ctx;
 
         threads.push(thread::spawn(move || {
-            let mut chunks = chunks.lock().unwrap();
-            if chunks.is_empty() {
-                return;
-            }
-
-            let chunk = chunks.pop();
-            drop(chunks);
+            let chunk = match chunks.lock().unwrap().pop() {
+                Some(chunk) => chunk,
+                None => return,
+            };
 
             let mut rng = rand::thread_rng();
 
-            for j in (0..IMG_HEIGHT).rev() {
-                for i in 0..IMG_WIDTH {
-                    let mut pixel_color = Color::default();
+            for (y, x) in chunk {
+                let mut pixel_color = Color::default();
 
-                    for _ in 0..SAMPLES_PER_PIXEL {
-                        let u = (i as f64 + rng.gen::<f64>()) / (IMG_WIDTH - 1) as f64;
-                        let v = (j as f64 + rng.gen::<f64>()) / (IMG_HEIGHT - 1) as f64;
-                        let ray = ctx.camera.make_ray(u, v);
-                        pixel_color += ray_color(&ray, &ctx.world, MAX_DEPTH);
-                    }
-
-                    pixel_color /= SAMPLES_PER_PIXEL as f64;
-
-                    let mut buf = buf.lock().unwrap();
-                    buf.put_pixel(i, IMG_HEIGHT - j - 1, Rgb(pixel_color.as_rgb_vec()));
+                for _ in 0..SAMPLES_PER_PIXEL {
+                    let u = (x as f64 + rng.gen::<f64>()) / (IMG_WIDTH - 1) as f64;
+                    let v = (y as f64 + rng.gen::<f64>()) / (IMG_HEIGHT - 1) as f64;
+                    let ray = ctx.camera.make_ray(u, v);
+                    pixel_color += ray_color(&ray, &ctx.world, MAX_DEPTH);
                 }
+
+                pixel_color /= SAMPLES_PER_PIXEL as f64;
+
+                let mut buf = buf.lock().unwrap();
+                buf.put_pixel(x, IMG_HEIGHT - y - 1, Rgb(pixel_color.as_rgb_vec()));
             }
         }));
     }
 
     for thread in threads {
-        thread.join();
+        thread.join().unwrap();
     }
 
     let buf = buf.lock().unwrap();
-    buf.save("out.png");
+    buf.save("out.png").unwrap();
 
     eprintln!("Done!");
 }

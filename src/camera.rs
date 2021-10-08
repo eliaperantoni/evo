@@ -15,7 +15,6 @@ pub struct CameraOpts {
 pub struct Camera {
     lens_radius: f64,
     eye: Pos3,
-    forward: Vec3,
     right: Vec3,
     up: Vec3,
     lower_left_corner: Pos3,
@@ -42,7 +41,6 @@ impl Camera {
         Self {
             lens_radius: opts.aperture / 2.0,
             eye: opts.eye,
-            forward,
             right,
             up,
             horizontal,
